@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🎵 AeroWave 音乐播放器</title>
+<style>
+  :root {
+    --accent: #6c5ce7;
+    --accent2: #00cec9;
+    --bg: #0f1424;
+    --glass: rgba(255, 255, 255, 0.06);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --text: #eef2ff;
+    --text-dim: #9aa3c3;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: radial-gradient(1200px 800px at 20% -10%, #1b2b5e 0%, transparent 60%),
+                radial-gradient(1000px 700px at 100% 110%, #122b3f 0%, transparent 55%),
+                var(--bg);
+    min-height: 100vh;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow: hidden;
+  }
+
+  .blob {
+    position: fixed; border-radius: 50%; filter: blur(90px); opacity: .45; z-index: 0;
+    animation: float 18s ease-in-out infinite;
+  }
+  .blob.b1 { width: 340px; height: 340px; background: #6c5ce7; top: -60px; left: -60px; }
+  .blob.b2 { width: 300px; height: 300px; background: #00cec9; bottom: -80px; right: -40px; animation-delay: -6s; }
+  .blob.b3 { width: 220px; height: 220px; background: #fd79a8; top: 40%; right: 10%; animation-delay: -12s; }
+  @keyframes float {
+    0%,100% { transform: translateY(0) scale(1); }
+    50%     { transform: translateY(-40px) scale(1.1); }
+  }
+
+  .app {
+    position: relative; z-index: 1;
+    width: 100%; max-width: 1000px;
+    background: linear-gradient(160deg, rgba(255,255,255,.09), rgba(255,255,255,.03));
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border-radius: 28px;
+    box-shadow: 0 30px 70px rgba(0,0,0,.5);
+    overflow: hidden;
+  }
+
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--glass-border);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 20px; letter-spacing: .5px; }
+  .brand .logo {
+    width: 40px; height: 40px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: grid; place-items: center; font-size: 20px;
+    box-shadow: 0 8px 20px rgba(108,92,231,.4);
+  }
+  .status-chip {
+    font-size: 12px; color: var(--text-dim);
+    background: var(--glass); border: 1px solid var(--glass-border);
+    padding: 6px 12px; border-radius: 999px;
+  }
+  .status-chip .dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent2); margin-right: 6px; vertical-align: 1px;
+    box-shadow: 0 0 8px var(--accent2);
+  }
+
+  .main {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 28px;
+    padding: 28px;
+  }
+  @media (max-width: 720px) { .main { grid-template-columns: 1fr; } }
+
+  .left { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+
+  .cover-wrap { position: relative; width: 100%; }
+  .cover {
+    width: 100%; aspect-ratio: 1; border-radius: 22px;
+    background: linear-gradient(135deg, #2d3561, #10162e);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 20px 50px rgba(0,0,0,.5);
+    position: relative; overflow: hidden;
+    display: grid; place-items: center; cursor: pointer;
+  }
+  .cover::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(120% 120% at 30% 20%, rgba(255,255,255,.14), transparent 55%);
+  }
+  .cover .disc {
+    width: 58%; aspect-ratio: 1; border-radius: 50%;
+    background: repeating-radial-gradient(circle, #1a213f 0 6%, #232b52 6% 12%);
+    display: grid; place-items: center;
+    position: relative;
+  }
+  .cover .disc img {
+    width: 40%; height: 40%; border-radius: 50%; object-fit: cover;
+    border: 3px solid rgba(0,0,0,.4);
+  }
+  .cover.playing .disc { animation: spin 12s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .cover .hub {
+    position: absolute; width: 18%; aspect-ratio: 1; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #9fb0ff, #434d86 70%);
+    box-shadow: 0 0 18px rgba(108,92,231,.8);
+  }
+
+  .track-info { text-align: center; }
+  .track-info h2 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .track-info p { color: var(--accent2); font-size: 14px; letter-spacing: .3px; }
+
+  .controls { display: flex; align-items: center; gap: 18px; }
+  .ctl-btn {
+    background: var(--glass); border: 1px solid var(--glass-border); color: var(--text);
+    width: 46px; height: 46px; border-radius: 50%; cursor: pointer; font-size: 18px;
+    display: grid; place-items: center; transition: .2s;
+  }
+  .ctl-btn:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.3); }
+  .ctl-btn:active { transform: scale(.92); }
+  .ctl-btn.primary {
+    width: 64px; height: 64px; font-size: 24px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; box-shadow: 0 10px 26px rgba(108,92,231,.45);
+  }
+
+  .progress { width: 100%; }
+  .time-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 6px;
+    background: var(--glass); outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: #fff; box-shadow: 0 0 10px rgba(255,255,255,.6); border: none;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 14px; height: 14px; border-radius: 50%; background: #fff; border: none;
+  }
+
+  .vol-row { display: flex; align-items: center; gap: 10px; width: 100%; }
+  .vol-row .vol-icon { font-size: 15px; color: var(--text-dim); }
+
+  .right { display: flex; flex-direction: column; }
+  .right h3 { font-size: 13px; letter-spacing: 1.5px; color: var(--text-dim); margin-bottom: 14px; }
+
+  .playlist { list-style: none; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; max-height: 420px; padding-right: 4px; }
+  .playlist::-webkit-scrollbar { width: 6px; }
+  .playlist::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 6px; }
+
+  .track-item {
+    display: flex; align-items: center; gap: 14px; padding: 12px 14px;
+    border-radius: 14px; cursor: pointer; transition: .2s; background: transparent;
+    border: 1px solid transparent;
+  }
+  .track-item:hover { background: var(--glass); }
+  .track-item.active {
+    background: linear-gradient(120deg, rgba(108,92,231,.22), rgba(0,206,201,.12));
+    border-color: rgba(108,92,231,.4);
+  }
+  .track-item .idx { width: 26px; text-align: center; color: var(--text-dim); font-size: 13px; flex-shrink: 0; }
+  .track-item.active .idx { color: var(--accent2); }
+  .track-item .thumb {
+    width: 46px; height: 46px; border-radius: 10px; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 20px;
+  }
+  .track-item .meta { flex: 1; min-width: 0; }
+  .track-item .t-name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .track-item .t-artist { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+  .eq { display: flex; align-items: flex-end; gap: 2px; height: 16px; }
+  .eq span { width: 3px; background: var(--accent2); border-radius: 2px; height: 40%; animation: eqb 1s ease-in-out infinite; }
+  .eq span:nth-child(1){animation-delay:0s} .eq span:nth-child(2){animation-delay:.2s}
+  .eq span:nth-child(3){animation-delay:.4s} .eq span:nth-child(4){animation-delay:.1s}
+  @keyframes eqb { 0%,100%{height:30%} 50%{height:90%} }
+  .eq.paused span { animation-play-state: paused; height: 30%; }
+
+  .footer {
+    padding: 14px 28px; border-top: 1px solid var(--glass-border);
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; color: var(--text-dim);
+  }
+  #modeBtn { cursor: pointer; padding: 4px 10px; border-radius: 8px; transition:.2s; }
+  #modeBtn:hover { background: var(--glass); color: var(--text); }
+</style>
+</head>
+<body>
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+
+  <div class="app">
+    <div class="header">
+      <div class="brand"><span class="logo">♪</span> AeroWave</div>
+      <div class="status-chip"><span class="dot"></span><span id="statusText">就绪</span></div>
+    </div>
+
+    <div class="main">
+      <div class="left">
+        <div class="cover-wrap">
+          <div class="cover" id="cover">
+            <div class="disc"><img id="discImg" alt="cover" /></div>
+            <div class="hub"></div>
+          </div>
+        </div>
+        <div class="track-info">
+          <h2 id="trackName">—</h2>
+          <p id="trackArtist">—</p>
+        </div>
+        <div class="controls">
+          <button class="ctl-btn" id="prevBtn" title="上一首">⏮</button>
+          <button class="ctl-btn primary" id="playBtn" title="播放/暂停">▶</button>
+          <button class="ctl-btn" id="nextBtn" title="下一首">⏭</button>
+        </div>
+        <div class="progress">
+          <div class="time-row"><span id="curTime">0:00</span><span id="durTime">0:00</span></div>
+          <input type="range" id="seek" min="0" max="1000" value="0" />
+        </div>
+        <div class="vol-row">
+          <span class="vol-icon">🔊</span>
+          <input type="range" id="vol" min="0" max="100" value="70" />
+        </div>
+        <canvas id="viz" style="width:100%;height:60px;margin-top:6px;"></canvas>
+      </div>
+
+      <div class="right">
+        <h3>播放列表 — 点击播放</h3>
+        <ul class="playlist" id="playlist"></ul>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>DSH Demo · 可播放/暂停 · 空格键下一首/上一首</span>
+      <span id="modeBtn">顺序播放</span>
+    </div>
+  </div>
+
+<script>
+var tracks = [
+  { name: 'Time',                 artist: '重现 · 电影原声', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', c:'60deg' },
+  { name: 'Midnight Drive',      artist: 'Synthwave',       url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', c:'300deg' },
+  { name: 'Golden Horizon',      artist: 'Lo-fi 电台',      url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', c:'40deg' },
+  { name: 'Electric Dreams',     artist: 'Chillout',        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', c:'180deg' },
+  { name: 'Neon Skyline',        artist: 'City Pop',        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3', c:'320deg' },
+  { name: 'Weightless',          artist: 'Ambient 氛围',     url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3', c:'120deg' },
+  { name: 'Sunset Boulevard',    artist: 'Indie',           url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3', c:'200deg' }
+];
+
+var audio = new Audio();
+var coverEl=document.getElementById('cover'), discImg=document.getElementById('discImg');
+var trackName=document.getElementById('trackName'), trackArtist=document.getElementById('trackArtist');
+var statusT=document.getElementById('statusText'), playBtn=document.getElementById('playBtn');
+var seek=document.getElementById('seek'), vol=document.getElementById('vol');
+var curT=document.getElementById('curTime'), durT=document.getElementById('durTime');
+var playlistEl=document.getElementById('playlist'), modeBtn=document.getElementById('modeBtn');
+var vizCanvas=document.getElementById('viz'), vizCtx=vizCanvas.getContext('2d');
+
+var idx=0, mode='loop', analyser=null, data=null;
+var curHue=60;
+
+function fmt(s){ if(!isFinite(s)||isNaN(s)) return '0:00'; var m=Math.floor(s/60), ss=Math.floor(s%60); return m+':'+(ss<10?'0':'')+ss; }
+function randIdx(c){ var n=Math.floor(Math.random()*tracks.length); return n===c?(n+1)%tracks.length:n; }
+
+function renderList(){
+  playlistEl.innerHTML='';
+  tracks.forEach(function(t,i){
+    var li=document.createElement('li');
+    li.className='track-item'+(i===idx?' active':'');
+    var eq = i===idx ? '<span class="eq"><span></span><span></span><span></span><span></span></span>' : '';
+    li.innerHTML='<span class="idx">'+(i===idx?eq:i+1)+'</span>'+
+      '<span class="thumb" style="background:linear-gradient(135deg,hsl('+(i*47%360)+',70%,50%),hsl('+((i*47+80)%360)+',70%,35%))">🎵</span>'+
+      '<span class="meta"><div class="t-name">'+t.name+'</div><div class="t-artist">'+t.artist+'</div></span>'+
+      '<span class="dur"></span>';
+    li.onclick=function(){ load(i,true); };
+    playlistEl.appendChild(li);
+  });
+}
+function syncEq(){
+  var active=document.querySelector('.track-item.active .eq');
+  if(active) active.classList.toggle('paused', audio.paused || !audio.src);
+}
+function coverGradient(){
+  var t=tracks[idx];
+  document.querySelector('.cover').style.background='linear-gradient(135deg,hsl('+(parseFloat(t.c.slice(0,-3)))%360+',60%,40%),hsl('+(((parseFloat(t.c.slice(0,-3)))+60)%360)+',60%,22%))';
+}
+
+function load(i,autoplay){
+  idx=i; curHue=parseFloat(tracks[i].c);
+  var items=document.querySelectorAll('.track-item');
+  for(var k=0;k<items.length;k++) items[k].classList.toggle('active',k===i);
+  var t=tracks[i];
+  trackName.textContent=t.name; trackArtist.textContent=t.artist;
+  discImg.style.display='none';
+  audio.src=t.url; audio.volume=vol.value/100;
+  coverGradient(); syncEq();
+  if(autoplay) audio.play();
+}
+function togglePlay(){
+  if(!audio.src){ load(0,true); return; }
+  if(audio.paused) audio.play(); else audio.pause();
+}
+function next(){
+  if(mode==='single'){ audio.currentTime=0; audio.play(); }
+  else if(mode==='shuffle'){ load(randIdx(idx),true); }
+  else load((idx+1)%tracks.length,true);
+}
+function prev(){
+  if(audio.currentTime>3){ audio.currentTime=0; return; }
+  if(mode==='shuffle'){ load(randIdx(idx),true); }
+  else load((idx-1+tracks.length)%tracks.length,true);
+}
+
+audio.addEventListener('loadedmetadata',function(){ durT.textContent=fmt(audio.duration); });
+audio.addEventListener('timeupdate',function(){
+  var d=audio.duration||1;
+  seek.value=audio.currentTime/d*1000;
+  curT.textContent=fmt(audio.currentTime);
+  if(idx===Math.floor(idx)){} // noop guard
+});
+audio.addEventListener('seeked',function(){});
+audio.addEventListener('play',function(){ playBtn.textContent='⏸'; coverEl.classList.add('playing'); syncEq(); statusT.textContent='播放中'; });
+audio.addEventListener('playing',function(){ statusT.textContent='播放中'; });
+audio.addEventListener('pause',function(){ playBtn.textContent='▶'; coverEl.classList.remove('playing'); syncEq(); statusT.textContent='已暂停'; });
+audio.addEventListener('ended',function(){ mode==='single' ? (audio.currentTime=0,audio.play()) : next(); });
+audio.addEventListener('error',function(){ statusT.textContent='加载失败，请检查网络'; });
+
+playBtn.onclick=togglePlay;
+document.getElementById('nextBtn').onclick=next;
+document.getElementById('prevBtn').onclick=prev;
+coverEl.onclick=togglePlay;
+seek.oninput=function(){ if(audio.duration) audio.currentTime=seek.value/1000*audio.duration; };
+vol.oninput=function(){ audio.volume=vol.value/100; };
+modeBtn.onclick=function(){
+  mode = mode==='loop' ? 'shuffle' : mode==='shuffle' ? 'single' : 'loop';
+  modeBtn.textContent={loop:'顺序播放',shuffle:'随机播放',single:'单曲循环'}[mode];
+};
+document.addEventListener('keydown',function(e){
+  if(e.code==='Space'){ e.preventDefault(); togglePlay(); }
+  else if(e.code==='ArrowRight') next();
+  else if(e.code==='ArrowLeft') prev();
+});
+
+/* WebAudio visualizer */
+function initAudioViz(){
+  try{
+    var ac=new (window.AudioContext||window.webkitAudioContext)();
+    var src=ac.createMediaElementSource(audio);
+    analyser=ac.createAnalyser(); analyser.fftSize=128;
+    src.connect(analyser); analyser.connect(ac.destination);
+    data=new Uint8Array(analyser.frequencyBinCount);
+  }catch(err){ /* CORS may block; fall back to idle bars */ }
+}
+function draw(){
+  requestAnimationFrame(draw);
+  var w=vizCanvas.clientWidth, h=60;
+  vizCanvas.width=w; vizCanvas.height=h;
+  vizCtx.clearRect(0,0,w,h);
+  var bars=32,gap=3,barW=(w-gap*(bars-1))/bars;
+  for(var i=0;i<bars;i++){
+    var v = analyser&&data ? data[Math.floor(i/bars*data.length)]/255 : (0.06+0.04*Math.sin(Date.now()/300+i));
+    if(audio.paused) v*=0.3;
+    var bh=Math.max(2,v*h);
+    var grad=vizCtx.createLinearGradient(0,h-bh,0,h);
+    grad.addColorStop(0,'#00cec9'); grad.addColorStop(1,'#6c5ce7');
+    vizCtx.fillStyle=grad;
+    vizCtx.beginPath();
+    if(vizCtx.roundRect) vizCtx.roundRect(i*(barW+gap),h-bh,barW,bh,3);
+    else vizCtx.rect(i*(barW+gap),h-bh,barW,bh);
+    vizCtx.fill();
+  }
+}
+
+window.addEventListener('load',function(){ load(0,false); renderList(); draw(); });
+document.addEventListener('click',function(){ if(!analyser) initAudioViz(); },{ once:true });
+</script>
+</body>
+</html>
