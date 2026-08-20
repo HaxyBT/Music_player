@@ -146,13 +146,26 @@
   .pbtn {
     font-family: var(--px); font-size: 15px; color: #fff;
     background: transparent; border: 2px solid #fff; cursor: pointer;
-    padding: 10px 16px; letter-spacing: 1px;
+    padding: 0 16px; letter-spacing: 1px;
+    box-sizing: border-box; height: 44px; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
     box-shadow: 3px 3px 0 rgba(0,0,0,.6);
     transition: transform .06s, box-shadow .06s, background .15s;
   }
   .pbtn:hover { background: rgba(255,255,255,.14); }
   .pbtn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 rgba(0,0,0,.6); }
-  .pbtn.play { font-size: 17px; padding: 12px 22px; }
+  .pbtn.play {
+    width: 64px; gap: 5px;
+    /* 高度、内距、居中统一由 .pbtn 提供；播放/暂停图标用 ::before / ::after 绘制 */
+  }
+  /* 播放图标：白色三角形（用 ::before 绘制，避免 ▶/⏸ 字体高度差导致抖动） */
+  .pbtn.play::before {
+    content: ""; width: 0; height: 0; border-style: solid;
+    border-width: 8px 0 8px 13px; border-color: transparent transparent transparent #fff;
+  }
+  /* 暂停图标：两根白色竖条（::before + ::after，靠 flex gap 居中） */
+  .pbtn.play.playing::before { width: 5px; height: 15px; border: none; background: #fff; }
+  .pbtn.play.playing::after  { content: ""; width: 5px; height: 15px; background: #fff; }
   .pbtn:disabled { opacity: .35; pointer-events: none; }
   .pbtn.on { background: rgba(255,255,255,.16); }
 
@@ -260,7 +273,7 @@
         <input type="range" id="seek" min="0" max="1000" value="0" />
         <div id="controls">
           <button class="pbtn" id="prevBtn" title="上一首 (←)">◀◀</button>
-          <button class="pbtn play" id="playBtn" title="播放 / 暂停 (空格)">▶ 播放</button>
+          <button class="pbtn play" id="playBtn" title="播放 / 暂停 (空格)" aria-label="播放 / 暂停"></button>
           <button class="pbtn" id="nextBtn" title="下一首 (→)">▶▶</button>
           <span id="timeTxt">0:00 / 0:00</span>
           <input type="range" id="volSlider" min="0" max="100" value="85" title="音量 (↑/↓)" />
@@ -807,13 +820,13 @@ var vizSmooth = [];
   }
   audio.addEventListener('seeked', function(){ updateLyric(); });
   audio.addEventListener('play', function(){
-    playBtn.textContent = '⏸ 暂停';
+    playBtn.classList.add('playing');
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   });
-  audio.addEventListener('pause', function(){ playBtn.textContent = '▶ 播放'; });
+  audio.addEventListener('pause', function(){ playBtn.classList.remove('playing'); });
   audio.addEventListener('ended', function(){
     if (tracks.length) next();
-    else playBtn.textContent = '▶ 播放';
+    else playBtn.classList.remove('playing');
   });
 
   document.addEventListener('keydown', function(e){
